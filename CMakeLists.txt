@@ -13,7 +13,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cli11)
 
-add_executable(csvtool src/main.cpp src/cli_parser.cpp )
+add_executable(csvtool src/main.cpp src/cli_parser.cpp src/input_reader.cpp 
+src/row_parser.cpp)
 
 target_link_libraries(csvtool PRIVATE CLI11::CLI11)
 
