@@ -1,17 +1,14 @@
 #ifndef FILTER_CONDITION_H
 #define FILTER_CONDITION_H
 
+#include <cstddef>
 #include <string>
 
 namespace csvtool {
 
 struct FilterCondition {
-public:
-  FilterCondition(const std::string &filter_expression);
-
-private:
+  size_t column_index;
   std::string op;
-  int column_index;
   std::string value;
 };
 

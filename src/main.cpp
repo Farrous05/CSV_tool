@@ -1,7 +1,9 @@
 #include "csvtool/cli_parser.h"
+#include "csvtool/filter_engine.h"
 #include "csvtool/input_reader.h"
 #include "csvtool/row_parser.h"
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 
 int main(int argc, char *argv[]) {
@@ -11,8 +13,22 @@ int main(int argc, char *argv[]) {
     csvtool::InputReader reader(config.input_file);
     std::optional<std::string> line;
     csvtool::RowParser parser(config.delimiter, reader.next_line().value());
+
+    std::optional<csvtool::FilterEngine> filter_engine;
+    if (!config.filter_expression.empty()) {
+      auto lookup = [&](const std::string &col) {
+        return parser.get_column_index(col);
+      };
+      csvtool::FilterCondition condition =
+          csvtool::parse_filter(config.filter_expression, lookup);
+      filter_engine.emplace(condition);
+    }
+
     while ((line = reader.next_line())) {
       std::vector<std::string> fields = parser.parse_row(line.value());
+      if (filter_engine && !filter_engine->evaluate(fields)) {
+        continue;
+      }
       for (const auto &field : fields) {
         std::cout << field << " ";
       }
