@@ -1,4 +1,8 @@
-name,age,city,salary,department
-Alice,30,Paris,55000,Engineering
-Bob,25,Lyon,42000,Marketing
-Charlie,35,Brussels,61000,Engineering
+Name,Department,Salary
+Alice,Engineering,100000
+Bob,Engineering,120000
+Charlie,Sales,80000
+David,Sales,85000
+Eve,HR,90000
+Frank,Engineering,110000
+Grace,Marketing,30000

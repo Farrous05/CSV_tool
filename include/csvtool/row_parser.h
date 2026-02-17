@@ -12,7 +12,7 @@ class RowParser {
 public:
   RowParser(char delimiter, const std::string &header_line);
 
-  std::vector<std::string> parse_row(const std::string &line);
+  void parse_row(const std::string &line, std::vector<std::string> &row);
   size_t get_column_index(const std::string &column_name);
 
 private:
