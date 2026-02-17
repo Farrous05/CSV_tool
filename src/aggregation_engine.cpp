@@ -1,4 +1,5 @@
 #include "csvtool/aggregation_engine.h"
+#include "csvtool/utils.h"
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -9,11 +10,11 @@ namespace csvtool {
 AggregationEngine::AggregationEngine(AggregationCondition condition)
     : condition(condition) {}
 
-void AggregationEngine::aggregate(const std::vector<std::string> &row) {
+bool AggregationEngine::aggregate(const std::vector<std::string> &row) {
   if ((!condition.global_aggregation &&
        condition.group_by_index >= row.size()) ||
       condition.agg_column_index >= row.size()) {
-    return;
+    return false;
   }
 
   std::string group_key;
@@ -26,11 +27,8 @@ void AggregationEngine::aggregate(const std::vector<std::string> &row) {
   const std::string &agg_value_str = row[condition.agg_column_index];
 
   double agg_value;
-  // TODO try/catch in hot path
-  try {
-    agg_value = std::stod(agg_value_str);
-  } catch (...) {
-    return; // Skip non-numeric values
+  if (!fast_parse_double(agg_value_str, agg_value)) {
+    return false; // Failed to parse
   }
 
   auto &acc = accumulators[group_key];
@@ -40,6 +38,8 @@ void AggregationEngine::aggregate(const std::vector<std::string> &row) {
     acc.min = agg_value;
   if (agg_value > acc.max)
     acc.max = agg_value;
+
+  return true;
 }
 
 std::unordered_map<std::string, AggregationEngine::Accumulator>

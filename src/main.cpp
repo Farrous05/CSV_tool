@@ -63,22 +63,52 @@ int main(int argc, char *argv[]) {
       filter_engine.emplace(condition);
     }
 
+    // Print header if we are not aggregating
+    if (!agg_engine) {
+      std::cout << header_line.value() << std::endl;
+    }
+
+    int error_count = 0;
     std::vector<std::string> fields;
     while ((line = reader.next_line())) {
       parser.parse_row(line.value(), fields);
 
+      bool row_valid = true;
+      if (agg_engine) {
+        if (!agg_engine->aggregate(fields)) {
+          row_valid = false;
+        }
+      } else {
+      }
+
+      if (!row_valid) {
+        if (config.parse_error_strategy == "fail") {
+          std::cerr << "Row parsing/processing failed." << std::endl;
+          return 1;
+        } else if (config.parse_error_strategy == "warn") {
+          std::cerr << "Warning: Row parsing/processing failed." << std::endl;
+          error_count++;
+        } else {
+          // skip
+          error_count++; // Still count for max_errors
+        }
+
+        if (config.max_errors > 0 && error_count > config.max_errors) {
+          std::cerr << "Max errors exceeded." << std::endl;
+          return 1;
+        }
+        continue;
+      }
+
+      // Filter check
       if (filter_engine && !filter_engine->evaluate(fields)) {
         continue;
       }
 
-      if (agg_engine) {
-        agg_engine->aggregate(fields);
-      } else {
+      if (!agg_engine) {
         // Normal row printing if no aggregation
-        for (const auto &field : fields) {
-          std::cout << field << " ";
-        }
-        std::cout << std::endl;
+        // We print the raw line to preserve CSV format
+        std::cout << line.value() << std::endl;
       }
     }
 

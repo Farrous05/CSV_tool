@@ -1,4 +1,5 @@
 #include "csvtool/filter_engine.h"
+#include "csvtool/utils.h"
 #include <string>
 #include <vector>
 
@@ -16,13 +17,9 @@ bool FilterEngine::evaluate(const std::vector<std::string> &row) {
   const std::string &op = condition.op;
 
   // Try numeric comparison first if possible
-  // TODO: avoid exception in hot path (build is_numeric(const std::string&)
-  // helper)
-
-  try {
-    double cell_num = std::stod(cell_value);
-    double val_num = std::stod(value);
-
+  double cell_num, val_num;
+  if (fast_parse_double(cell_value, cell_num) &&
+      fast_parse_double(value, val_num)) {
     if (op == ">")
       return cell_num > val_num;
     if (op == "<")
@@ -35,8 +32,6 @@ bool FilterEngine::evaluate(const std::vector<std::string> &row) {
       return cell_num == val_num;
     if (op == "!=")
       return cell_num != val_num;
-  } catch (...) {
-    // Fallback to string comparison
   }
 
   if (op == ">")

@@ -20,7 +20,7 @@ public:
   };
 
   AggregationEngine(AggregationCondition condition);
-  void aggregate(const std::vector<std::string> &row);
+  bool aggregate(const std::vector<std::string> &row);
   std::unordered_map<std::string, Accumulator> get_result() const;
   const AggregationCondition &get_condition() const;
 
