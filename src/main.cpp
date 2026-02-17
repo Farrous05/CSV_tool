@@ -1,6 +1,8 @@
+#include "csvtool/aggregation_engine.h"
 #include "csvtool/cli_parser.h"
 #include "csvtool/filter_engine.h"
 #include "csvtool/input_reader.h"
+#include "csvtool/output_formatter.h"
 #include "csvtool/row_parser.h"
 #include <iostream>
 #include <optional>
@@ -8,13 +10,50 @@
 
 int main(int argc, char *argv[]) {
   csvtool::Config config = csvtool::parse(argc, argv);
-  std::cout << "csvtool v0.1" << std::endl;
+  if (config.input_file.empty()) {
+    std::cerr << "Usage: csvtool [input_file] [OPTIONS]\nTry './csvtool "
+                 "--help' for more information."
+              << std::endl;
+    return 1;
+  }
+  // std::cout << "csvtool v0.1" << std::endl; // Silent by default
+  std::optional<csvtool::AggregationEngine> agg_engine;
+  std::optional<csvtool::FilterEngine> filter_engine;
+
   try {
     csvtool::InputReader reader(config.input_file);
     std::optional<std::string> line;
-    csvtool::RowParser parser(config.delimiter, reader.next_line().value());
+    // Read header to initialize parser
+    auto header_line = reader.next_line();
+    if (!header_line) {
+      std::cerr << "Empty input file" << std::endl;
+      return 1;
+    }
+    csvtool::RowParser parser(config.delimiter, header_line.value());
 
-    std::optional<csvtool::FilterEngine> filter_engine;
+    if (!config.aggregation_expression.empty()) {
+      auto lookup = [&](const std::string &col) {
+        return parser.get_column_index(col);
+      };
+
+      try {
+        csvtool::AggregationCondition condition =
+            csvtool::parse_aggregation(config.aggregation_expression, lookup);
+
+        if (!config.group_by_column.empty()) {
+          condition.group_by_index =
+              parser.get_column_index(config.group_by_column);
+        } else {
+          condition.global_aggregation = true;
+        }
+
+        agg_engine.emplace(condition);
+      } catch (const std::exception &e) {
+        std::cerr << "Error parsing aggregation: " << e.what() << std::endl;
+        return 1;
+      }
+    }
+
     if (!config.filter_expression.empty()) {
       auto lookup = [&](const std::string &col) {
         return parser.get_column_index(col);
@@ -24,20 +63,38 @@ int main(int argc, char *argv[]) {
       filter_engine.emplace(condition);
     }
 
+    std::vector<std::string> fields;
     while ((line = reader.next_line())) {
-      std::vector<std::string> fields = parser.parse_row(line.value());
+      parser.parse_row(line.value(), fields);
+
       if (filter_engine && !filter_engine->evaluate(fields)) {
         continue;
       }
-      for (const auto &field : fields) {
-        std::cout << field << " ";
+
+      if (agg_engine) {
+        agg_engine->aggregate(fields);
+      } else {
+        // Normal row printing if no aggregation
+        for (const auto &field : fields) {
+          std::cout << field << " ";
+        }
+        std::cout << std::endl;
       }
-      std::cout << std::endl;
     }
+
+    // Print aggregation results
+    if (agg_engine) {
+      auto results = agg_engine->get_result();
+      const auto &condition = agg_engine->get_condition();
+      csvtool::Output_formatter(config.group_by_column, condition.agg_column,
+                                condition.agg_type, results, config.top_k);
+    }
+
   } catch (const std::runtime_error &e) {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
   if (config.verbose) {
     std::cout << "Input file: " << config.input_file << std::endl;
     std::cout << "Delimiter: " << config.delimiter << std::endl;

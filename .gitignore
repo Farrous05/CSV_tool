@@ -4,3 +4,7 @@ build/
 .cache/
 *.swp
 *~
+big_test.csv
+.idea/
+*.o
+*.a
